@@ -1,0 +1,7 @@
+Implementation-Title: tamacat-oidc-rp
+Implementation-Version: 1.4-20191125
+Bundle-ManifestVersion: 2
+Bundle-SymbolicName: org.tamacat.oidc.rp
+Bundle-Name: tamacat-oidc-rp
+Bundle-Vendor: TAMACAT.ORG
+Bundle-Version: 1.4
