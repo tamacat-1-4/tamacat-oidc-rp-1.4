@@ -375,7 +375,7 @@ public class OpenIdConnectBasicClientFilter implements Filter {
 		}
 		setCookie(resp, "subject", new String(Base64.getUrlEncoder().encode(sub.getBytes())), singleSignOnCookiePath);
 
-		authentication.activate(req, resp, upn);
+		authentication.activate(req, resp, upn, openIdConnectConfig.getId());
 		
 		sendRedirect(req, resp, getOriginURL(req, openIdConnectConfig.getRedirectUri()));
 	}

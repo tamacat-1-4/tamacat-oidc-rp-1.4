@@ -387,7 +387,7 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 		}
 		setCookie(resp, "subject", new String(Base64.getUrlEncoder().encode(sub.getBytes())), singleSignOnCookiePath);
 
-		authentication.activate(req, resp, upn);
+		authentication.activate(req, resp, upn, openIdConnectConfig.get(id).getId());
 		
 		sendRedirect(req, resp, getOriginURL(req, openIdConnectConfig.get(id).getRedirectUri()));
 	}

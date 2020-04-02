@@ -7,7 +7,7 @@ public interface OpenIdConnectSession {
 
 	boolean check(HttpServletRequest req, HttpServletResponse resp);
 	
-	void activate(HttpServletRequest req, HttpServletResponse resp, String session);
+	void activate(HttpServletRequest req, HttpServletResponse resp, String upn, String provider);
 	
 	void invalidate(HttpServletRequest req, HttpServletResponse resp);
 }
