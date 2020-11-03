@@ -1,3 +1,7 @@
+/*
+ * Copyright 2019 tamacat.org
+ * All rights reserved.
+ */
 package org.tamacat.oidc.rp.token;
 
 public class AccessTokenExpiredException extends RuntimeException {

@@ -1,3 +1,7 @@
+/*
+ * Copyright 2019 tamacat.org
+ * All rights reserved.
+ */
 package org.tamacat.oidc.rp.config;
 
 public class OpenIdConnectConfig {
@@ -17,6 +21,8 @@ public class OpenIdConnectConfig {
 	protected String clientId;
 	protected String clientSecret;
 	protected String jwksUri; //add 1.4
+	protected String idp;
+	protected String issuer;
 
 	protected String upn;
 	protected Profile profile;
@@ -148,10 +154,28 @@ public class OpenIdConnectConfig {
 	public void setJwksUri(String jwksUri) {
 		this.jwksUri = jwksUri;
 	}
+	
+	public void setIdp(String idp) {
+		this.idp = idp;
+	}
+	
+	public String getIdp() {
+		return idp;
+	}
+	
+	public void setIssuer(String issuer) {
+		this.issuer = issuer;
+	}
+	
+	public String getIssuer() {
+		return issuer;
+	}
 
 	@Override
 	public String toString() {
 		return "OpenIdConnectConfig [id=" + id + ", domain=" + domain
+				+ ", issuer="+issuer
+				+ ", idp="+idp
 				+ ", authorizationEndpoint=" + authorizationEndpoint
 				+ ", tokenEndpoint=" + tokenEndpoint + ", userInfoEndpoint="
 				+ userInfoEndpoint + ", endSessionEndpoint="

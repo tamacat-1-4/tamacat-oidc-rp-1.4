@@ -1,3 +1,7 @@
+/*
+ * Copyright 2019 tamacat.org
+ * All rights reserved.
+ */
 package org.tamacat.oidc.rp.filter;
 
 import java.io.IOException;
@@ -46,6 +50,7 @@ import org.tamacat.oidc.rp.util.PKCEUtils;
 import org.tamacat.util.CollectionUtils;
 import org.tamacat.util.EncryptionUtils;
 import org.tamacat.util.StringUtils;
+import org.tamacat.util.UniqueCodeGenerator;
 
 import com.google.api.client.auth.oauth2.AuthorizationCodeRequestUrl;
 import com.google.api.client.auth.oauth2.TokenResponse;
@@ -311,7 +316,7 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 			}
 		}
 		LOG.debug("#callback code=" + code);
-		String nonce = null; //UniqueCodeGenerator.generate();
+		String nonce = UniqueCodeGenerator.generate();
 		try {
 			TokenResponse tr = getTokenResponse(req, code, nonce);
 			processTokenResponse(req, resp, tr, nonce);
@@ -360,10 +365,18 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 	protected void processTokenResponse(HttpServletRequest req, HttpServletResponse resp, TokenResponse tokenResponse, String nonce) {
 		IdToken idToken = getIdToken(tokenResponse);
 		
-		//if (StringUtils.isNotEmpty(nonce) && nonce.equals(idToken.getPayload().getNonce())==false) {
-		//	throw new AccessTokenException("Invalid IdToken. Illegal nonce parameter.");
+		//String idTokenNonce = idToken.getPayload().getNonce();
+		//if (StringUtils.isNotEmpty(nonce) && StringUtils.isNotEmpty(idTokenNonce) && nonce.equals(idTokenNonce)==false) {
+		//	handleLogoutRequest(req, resp);
+		//	return;
 		//}
+		
 		String id = getId(req);
+		if (verifyIdToken(idToken, req, resp) == false) {
+	    	handleLogoutRequest(req, resp);
+	    	return;
+		}
+		
 		String upn = null;
 		if ("subject".equals(openIdConnectConfig.get(id).getUpn())) {
 			upn = (String) idToken.getPayload().getSubject();
@@ -411,6 +424,40 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 		return null;
 	}
 
+	protected boolean verifyIdToken(IdToken idToken, HttpServletRequest req, HttpServletResponse resp) {
+		String id = getId(req);
+
+		String clientId = openIdConnectConfig.get(id).getClientId();
+		String issuer = openIdConnectConfig.get(id).getIssuer();
+		String azp = idToken.getPayload().getAuthorizedParty(); //azp
+		
+		//check aud/client_id
+		if (idToken.verifyAudience(Arrays.asList(clientId)) == false) {
+			return false;
+		}
+		//check azp/client_id (OPTIONAL)
+		if (StringUtils.isNotEmpty(azp) && clientId.equals(azp) == false) {
+			return false;
+		}
+		//check issuer
+		if (issuer != null && idToken.verifyIssuer(issuer)==false) {
+			return false;
+		}
+		//check expiration
+		if (idToken.verifyExpirationTime(System.currentTimeMillis(), 30)==false || idToken.verifyIssuedAtTime(System.currentTimeMillis(), 30)==false) {
+			return false;
+		}
+		//check signature
+		try {
+		    if (idToken.verifySignature(getPublicKey(openIdConnectConfig.get(id).getJwksUri(), idToken.getHeader().getKeyId()))==false) {
+				return false;
+		    }
+		} catch (Exception e) {
+			//ignore
+		}
+		return true;
+	}
+	
 	protected RSAPublicKey getPublicKey(String jwksUri, String kid) {
 		if (StringUtils.isEmpty(jwksUri) || StringUtils.isEmpty(kid)) {
 			return null;

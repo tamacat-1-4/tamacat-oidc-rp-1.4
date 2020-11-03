@@ -1,3 +1,7 @@
+/*
+ * Copyright 2019 tamacat.org
+ * All rights reserved.
+ */
 package org.tamacat.oidc.rp.config;
 
 import static org.junit.Assert.*;

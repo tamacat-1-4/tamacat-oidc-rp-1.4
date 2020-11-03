@@ -1,3 +1,7 @@
+/*
+ * Copyright 2019 tamacat.org
+ * All rights reserved.
+ */
 package org.tamacat.oidc.rp.config;
 
 import java.io.IOException;
@@ -31,6 +35,8 @@ public class OpenIdConnectConfigLoader {
 	static final String REGISTRATION_URI = "registration_uri";
 	static final String SERVICE_URI = "service_uri";
 	static final String JWKS_URI = "jwks_uri";
+	static final String IDP = "idp";
+	static final String ISSUER = "issuer";
 
 	public OpenIdConnectConfig loadOpenIdConnectConfig(String file) {
 		JsonReader reader = null;
@@ -79,6 +85,8 @@ public class OpenIdConnectConfigLoader {
 		if (StringUtils.isNotEmpty(id) && StringUtils.isNotEmpty(domain)) {
 			config.setId(id);
 			config.setDomain(domain);
+			config.setIdp(o.getString(IDP, ""));
+			config.setIssuer(o.getString(ISSUER, ""));
 			config.setAuthorizationEndpoint(o.getString(AUTHORIZATION_ENDPOINT, ""));
 			config.setTokenEndpoint(o.getString(TOKEN_ENDPOINT, ""));
 			config.setCheckSessionIframe(o.getString(CHECK_SESSION_IFRAME, ""));
