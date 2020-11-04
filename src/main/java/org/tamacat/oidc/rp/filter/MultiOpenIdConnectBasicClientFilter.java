@@ -289,6 +289,7 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 		String codeVerifier = getCodeVerifier(clientId+"/"+redirectUri);
 		String codeChallenge = PKCEUtils.generateCodeChallenge(codeVerifier, codeChallengeMethod);
 		codeUrl.set("code_challenge_method", "S256").set("code_challenge", codeChallenge);
+		codeUrl.set("nonce", UniqueCodeGenerator.generate());
 		return codeUrl.build();
 	}
 	
@@ -307,6 +308,7 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 
 	protected void callback(HttpServletRequest req, HttpServletResponse resp) {
 		String code = req.getParameter("code");
+		String nonce = req.getParameter("nonce");
 		String error = req.getParameter("error");
 		String errorDescription = req.getParameter("error_description");
 		if (StringUtils.isNotEmpty(error) && StringUtils.isNotEmpty(errorDescription)) {
@@ -316,7 +318,6 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 			}
 		}
 		LOG.debug("#callback code=" + code);
-		String nonce = UniqueCodeGenerator.generate();
 		try {
 			TokenResponse tr = getTokenResponse(req, code, nonce);
 			processTokenResponse(req, resp, tr, nonce);
@@ -365,11 +366,11 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 	protected void processTokenResponse(HttpServletRequest req, HttpServletResponse resp, TokenResponse tokenResponse, String nonce) {
 		IdToken idToken = getIdToken(tokenResponse);
 		
-		//String idTokenNonce = idToken.getPayload().getNonce();
-		//if (StringUtils.isNotEmpty(nonce) && StringUtils.isNotEmpty(idTokenNonce) && nonce.equals(idTokenNonce)==false) {
-		//	handleLogoutRequest(req, resp);
-		//	return;
-		//}
+		String idTokenNonce = idToken.getPayload().getNonce();
+		if (StringUtils.isNotEmpty(nonce) && StringUtils.isNotEmpty(idTokenNonce) && nonce.equals(idTokenNonce)==false) {
+			handleLogoutRequest(req, resp);
+			return;
+		}
 		
 		String id = getId(req);
 		if (verifyIdToken(idToken, req, resp) == false) {
@@ -387,9 +388,7 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 
 		LOG.debug("upn="+upn+" ,subject=" + sub);
 		
-		//resp.addHeader("Set-Cookie", "sid="+id+"; HttpOnly=true; Path=/"); //domain or sid
 		// if local user is not exists when redirect user register URL.
-		//resp.addHeader("Set-Cookie", singleSignOnCookieName + "=" + new String(Base64.getUrlEncoder().encode(id.getBytes())) + "; HttpOnly=true; Path=/");
 		if (upn != null) {
 			setCookie(resp, "upn", new String(Base64.getUrlEncoder().encode(upn.getBytes())), singleSignOnCookiePath);
 		} else {

@@ -1,5 +1,5 @@
 Implementation-Title: tamacat-oidc-rp
-Implementation-Version: 1.4-20200402
+Implementation-Version: 1.4-20201104
 Bundle-ManifestVersion: 2
 Bundle-SymbolicName: org.tamacat.oidc.rp
 Bundle-Name: tamacat-oidc-rp

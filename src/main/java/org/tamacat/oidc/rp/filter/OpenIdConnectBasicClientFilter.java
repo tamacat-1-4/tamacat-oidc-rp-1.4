@@ -50,6 +50,7 @@ import org.tamacat.oidc.rp.util.PKCEUtils;
 import org.tamacat.util.CollectionUtils;
 import org.tamacat.util.EncryptionUtils;
 import org.tamacat.util.StringUtils;
+import org.tamacat.util.UniqueCodeGenerator;
 
 import com.google.api.client.auth.oauth2.AuthorizationCodeRequestUrl;
 import com.google.api.client.auth.oauth2.TokenResponse;
@@ -278,6 +279,7 @@ public class OpenIdConnectBasicClientFilter implements Filter {
 		String codeVerifier = getCodeVerifier(clientId+"/"+redirectUri);
 		String codeChallenge = PKCEUtils.generateCodeChallenge(codeVerifier, codeChallengeMethod);
 		codeUrl.set("code_challenge_method", "S256").set("code_challenge", codeChallenge);
+		codeUrl.set("nonce", UniqueCodeGenerator.generate());
 		return codeUrl.build();
 	}
 	
@@ -295,6 +297,7 @@ public class OpenIdConnectBasicClientFilter implements Filter {
 
 	protected void callback(HttpServletRequest req, HttpServletResponse resp) {
 		String code = req.getParameter("code");
+		String nonce = req.getParameter("nonce");
 		String error = req.getParameter("error");
 		String errorDescription = req.getParameter("error_description");
 		if (StringUtils.isNotEmpty(error) && StringUtils.isNotEmpty(errorDescription)) {
@@ -304,7 +307,6 @@ public class OpenIdConnectBasicClientFilter implements Filter {
 			}
 		}
 		LOG.debug("#callback code=" + code);
-		String nonce = null; //UniqueCodeGenerator.generate();
 		try {
 			TokenResponse tr = getTokenResponse(req, code, nonce);
 			processTokenResponse(req, resp, tr, nonce);
@@ -352,9 +354,16 @@ public class OpenIdConnectBasicClientFilter implements Filter {
 	protected void processTokenResponse(HttpServletRequest req, HttpServletResponse resp, TokenResponse tokenResponse, String nonce) {
 		IdToken idToken = getIdToken(tokenResponse);
 		
-		//if (StringUtils.isNotEmpty(nonce) && nonce.equals(idToken.getPayload().getNonce())==false) {
-		//	throw new AccessTokenException("Invalid IdToken. Illegal nonce parameter.");
-		//}
+		String idTokenNonce = idToken.getPayload().getNonce();
+		if (StringUtils.isNotEmpty(nonce) && StringUtils.isNotEmpty(idTokenNonce) && nonce.equals(idTokenNonce)==false) {
+			handleLogoutRequest(req, resp);
+			return;
+		}
+		
+		if (verifyIdToken(idToken, req, resp) == false) {
+	    	handleLogoutRequest(req, resp);
+	    	return;
+		}
 		
 		String upn = null;
 		if ("subject".equals(openIdConnectConfig.getUpn())) {
@@ -366,9 +375,7 @@ public class OpenIdConnectBasicClientFilter implements Filter {
 
 		LOG.debug("upn="+upn+" ,subject=" + sub);
 		
-		//resp.addHeader("Set-Cookie", "sid="+id+"; HttpOnly=true; Path=/"); //domain or sid
 		// if local user is not exists when redirect user register URL.
-		//resp.addHeader("Set-Cookie", singleSignOnCookieName + "=" + new String(Base64.getUrlEncoder().encode(id.getBytes())) + "; HttpOnly=true; Path=/");
 		if (upn != null) {
 			setCookie(resp, "upn", new String(Base64.getUrlEncoder().encode(upn.getBytes())), singleSignOnCookiePath);
 		} else {
@@ -401,6 +408,38 @@ public class OpenIdConnectBasicClientFilter implements Filter {
 			}
 		}
 		return null;
+	}
+	
+	protected boolean verifyIdToken(IdToken idToken, HttpServletRequest req, HttpServletResponse resp) {
+		String clientId = openIdConnectConfig.getClientId();
+		String issuer = openIdConnectConfig.getIssuer();
+		String azp = idToken.getPayload().getAuthorizedParty(); //azp
+		
+		//check aud/client_id
+		if (idToken.verifyAudience(Arrays.asList(clientId)) == false) {
+			return false;
+		}
+		//check azp/client_id (OPTIONAL)
+		if (StringUtils.isNotEmpty(azp) && clientId.equals(azp) == false) {
+			return false;
+		}
+		//check issuer
+		if (issuer != null && idToken.verifyIssuer(issuer)==false) {
+			return false;
+		}
+		//check expiration
+		if (idToken.verifyExpirationTime(System.currentTimeMillis(), 30)==false || idToken.verifyIssuedAtTime(System.currentTimeMillis(), 30)==false) {
+			return false;
+		}
+		//check signature
+		try {
+		    if (idToken.verifySignature(getPublicKey(openIdConnectConfig.getJwksUri(), idToken.getHeader().getKeyId()))==false) {
+				return false;
+		    }
+		} catch (Exception e) {
+			//ignore
+		}
+		return true;
 	}
 
 	protected RSAPublicKey getPublicKey(String jwksUri, String kid) {
