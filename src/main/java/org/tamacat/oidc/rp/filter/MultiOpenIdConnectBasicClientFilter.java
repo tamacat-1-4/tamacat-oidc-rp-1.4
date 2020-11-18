@@ -31,6 +31,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.tamacat.auth.TimeBasedOneTimePassword;
 import org.tamacat.auth.util.EncryptSessionUtils;
 import org.tamacat.di.DI;
 import org.tamacat.log.Log;
@@ -91,7 +92,8 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 	protected OpenIdConnectSession authentication;
 	protected String logoutPath = "/logout";
 	protected String configureFile = "controller.xml";
-
+	protected String totpSecret = EncryptSessionUtils.getSecretKey();
+	
 	static final Map<String, RSAPublicKey> PUBLIC_KEY_CACHE = CollectionUtils.newHashMap();
 	
 	public MultiOpenIdConnectBasicClientFilter() {
@@ -143,7 +145,7 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 	 */
 	public void setHttpProxyConfig(HttpProxyConfig httpProxyConfig) {
 		this.httpProxyConfig = httpProxyConfig;
-		if (httpProxyConfig != null) {
+		if (httpProxyConfig != null && httpProxyConfig.isDirect() == false) {
 			httpProxyConfig.setProxy();
 		}
 	}
@@ -277,7 +279,14 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 		}
 	}
 
-	protected String getUrlforCodeFlowAuth(HttpServletRequest req, String redirectUri) {
+	protected void redirectAuthorizationEndpoint(HttpServletRequest req, HttpServletResponse resp) {
+		String id = getId(req);
+		String state = new TimeBasedOneTimePassword().generate(totpSecret);
+		String authUrl = getUrlforCodeFlowAuth(req, getOriginURL(req, openIdConnectConfig.get(id).getCallbackUri()), state);
+		sendRedirect(req, resp, authUrl);
+	}
+	
+	protected String getUrlforCodeFlowAuth(HttpServletRequest req, String redirectUri, String state) {
 		String clientId = getClientId(req);
 		String id = getId(req);
 		AuthorizationCodeRequestUrl codeUrl = new AuthorizationCodeRequestUrl(
@@ -289,14 +298,8 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 		String codeVerifier = getCodeVerifier(clientId+"/"+redirectUri);
 		String codeChallenge = PKCEUtils.generateCodeChallenge(codeVerifier, codeChallengeMethod);
 		codeUrl.set("code_challenge_method", "S256").set("code_challenge", codeChallenge);
-		codeUrl.set("nonce", UniqueCodeGenerator.generate());
+		codeUrl.set("state", state);
 		return codeUrl.build();
-	}
-	
-	protected void redirectAuthorizationEndpoint(HttpServletRequest req, HttpServletResponse resp) {
-		String id = getId(req);
-		String authUrl = getUrlforCodeFlowAuth(req, getOriginURL(req, openIdConnectConfig.get(id).getCallbackUri()));
-		sendRedirect(req, resp, authUrl);
 	}
 
 	protected void sendRedirect(HttpServletRequest req, HttpServletResponse resp, String uri) {
@@ -308,7 +311,14 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 
 	protected void callback(HttpServletRequest req, HttpServletResponse resp) {
 		String code = req.getParameter("code");
-		String nonce = req.getParameter("nonce");
+		String state = req.getParameter("state");
+		if (StringUtils.isEmpty(state)) {
+			throw new ForbiddenException("Access Denied. state is empty.");
+		}
+		if (new TimeBasedOneTimePassword().check(totpSecret, state) == false) {
+			throw new ForbiddenException("Access Denied. Invalid state.");
+		}
+		
 		String error = req.getParameter("error");
 		String errorDescription = req.getParameter("error_description");
 		if (StringUtils.isNotEmpty(error) && StringUtils.isNotEmpty(errorDescription)) {
@@ -318,6 +328,8 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 			}
 		}
 		LOG.debug("#callback code=" + code);
+		
+		String nonce = UniqueCodeGenerator.generate();
 		try {
 			TokenResponse tr = getTokenResponse(req, code, nonce);
 			processTokenResponse(req, resp, tr, nonce);
@@ -353,7 +365,10 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 		}
 
 		LOG.debug("tokenUrl=" + tokenUrl.toString());
-
+		
+		//use proxy
+		setHttpProxyConfig(openIdConnectConfig.get(id).getProxyConfig());
+		
 		try {
 			return tokenUrl.execute2();
 		} catch (TokenResponseException e) {
@@ -385,7 +400,7 @@ public class MultiOpenIdConnectBasicClientFilter implements Filter {
 			upn = (String) idToken.getPayload().get(openIdConnectConfig.get(id).getUpn());
 		}
 		String sub = idToken.getPayload().getSubject();
-
+		
 		LOG.debug("upn="+upn+" ,subject=" + sub);
 		
 		// if local user is not exists when redirect user register URL.

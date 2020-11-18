@@ -11,7 +11,11 @@
 		"client_id":"abcdefg",
 		"client_secret":"1234567890",
 		"upn":"subject",
-		"profile":["user_name","email"]
+		"profile":["user_name","email"],
+		"http_proxy": "http://localhost:3128",
+		"proxy_username": "username",
+		"proxy_password": "password",
+		"non_proxy_hosts": "localhost, *.local"
 	},
 	{
 		"id":"tamacat.org",

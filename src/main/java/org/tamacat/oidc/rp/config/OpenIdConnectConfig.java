@@ -4,6 +4,11 @@
  */
 package org.tamacat.oidc.rp.config;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+
+import org.tamacat.util.StringUtils;
+
 public class OpenIdConnectConfig {
 
 	protected String id;
@@ -27,6 +32,8 @@ public class OpenIdConnectConfig {
 	protected String upn;
 	protected Profile profile;
 
+	protected HttpProxyConfig proxyConfig = new HttpProxyConfig();
+	
 	public String getId() {
 		return id;
 	}
@@ -170,7 +177,35 @@ public class OpenIdConnectConfig {
 	public String getIssuer() {
 		return issuer;
 	}
-
+	
+	public void setHttpProxy(String httpProxy) {
+		if (StringUtils.isNotEmpty(httpProxy)) {
+			try {
+				URL url = new URL(httpProxy);
+				proxyConfig.setProxyHost(url.getHost());
+				proxyConfig.setProxyPort(url.getPort());
+			} catch (MalformedURLException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	public void setProxyUsername(String username) {
+		proxyConfig.setUsername(username);
+	}
+	
+	public void setProxyPassword(String password) {
+		proxyConfig.setPassword(password);
+	}
+	
+	public void setNonProxyHosts(String nonProxyHosts) {
+		proxyConfig.setNonProxyHosts(nonProxyHosts);
+	}
+	
+	public HttpProxyConfig getProxyConfig() {
+		return proxyConfig;
+	}
+	
 	@Override
 	public String toString() {
 		return "OpenIdConnectConfig [id=" + id + ", domain=" + domain

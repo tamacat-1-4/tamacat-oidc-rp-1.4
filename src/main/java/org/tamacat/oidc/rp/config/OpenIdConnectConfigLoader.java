@@ -38,6 +38,11 @@ public class OpenIdConnectConfigLoader {
 	static final String IDP = "idp";
 	static final String ISSUER = "issuer";
 
+	static final String HTTP_PROXY = "http_proxy";
+	static final String PROXY_USERNAME = "proxy_username";
+	static final String PROXY_PASSWORD = "proxy_password";
+	static final String NON_PROXY_HOSTS = "non_proxy_hosts";
+	
 	public OpenIdConnectConfig loadOpenIdConnectConfig(String file) {
 		JsonReader reader = null;
 		try {
@@ -99,6 +104,12 @@ public class OpenIdConnectConfigLoader {
 			config.setRegistrationUri(o.getString(REGISTRATION_URI, ""));
 			config.setServiceUri(o.getString(SERVICE_URI, ""));
 			config.setJwksUri(o.getString(JWKS_URI, ""));
+			
+			config.setHttpProxy(o.getString(HTTP_PROXY, ""));
+			config.setProxyUsername(o.getString(PROXY_USERNAME, ""));
+			config.setProxyPassword(o.getString(PROXY_PASSWORD, ""));
+			config.setNonProxyHosts(o.getString(NON_PROXY_HOSTS, ""));
+			
 			//config.setParam("idp", o.getString("idp", ""));
 			config.setUpn(o.getString("upn", ""));
 			JsonArray keys = o.getJsonArray("profile");

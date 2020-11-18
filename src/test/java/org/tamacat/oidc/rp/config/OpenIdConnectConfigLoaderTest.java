@@ -32,6 +32,12 @@ public class OpenIdConnectConfigLoaderTest {
 
 		assertEquals("user_name", profile.keys()[0]);
 		assertEquals("email", profile.keys()[1]);
+		
+		//proxy
+		assertEquals("http://localhost:3128", config.getProxyConfig().getProxyHttpHost().toURI());
+		assertEquals("username", config.getProxyConfig().getCredentials().getUserPrincipal().getName());
+		assertEquals("password", config.getProxyConfig().getCredentials().getPassword());
+		assertEquals("localhost, *.local", config.getProxyConfig().getNonProxyHosts());
 	}
 
 }
